@@ -29,7 +29,9 @@ jobs:
           NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
 
       - name: Sync Capacitor iOS
-        run: npx cap sync ios
+        run: |
+          npx cap add ios 2>/dev/null || true
+          npx cap sync ios
 
       - name: Build iOS (Simulator)
         run: |
