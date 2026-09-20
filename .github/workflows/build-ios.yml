@@ -5,6 +5,9 @@ on:
     branches: [master]
   workflow_dispatch:
 
+env:
+  NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
+
 jobs:
   build-ios:
     runs-on: macos-latest
@@ -22,33 +25,30 @@ jobs:
 
       - name: Build Next.js
         run: npm run build
-
-      - name: Sync Capacitor iOS
-        run: npx cap sync ios
         env:
           NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
 
-      - name: Build iOS app
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      - name: Build iOS (Simulator)
         run: |
           cd ios/App
-          # Build for simulator (no code signing needed)
           xcodebuild build \
             -project App.xcodeproj \
             -scheme App \
             -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
-        env:
-          NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
 
-      - name: Upload build artifacts
+      - name: Upload simulator build
         uses: actions/upload-artifact@v4
         with:
-          name: ios-app
+          name: ios-simulator-app
           path: ios/App/build/
 
-      - name: Archive for App Store (requires Apple Developer)
-        if: github.ref == 'refs/heads/master'
+      - name: Build iOS Archive (requires Apple credentials)
+        if: env.APPLE_CERTIFICATE != ''
         run: |
           cd ios/App
           xcodebuild archive \
@@ -56,9 +56,12 @@ jobs:
             -scheme App \
             -archivePath build/App.xcarchive \
             -destination "generic/platform=iOS" \
-            CODE_SIGN_STYLE="Automatic" \
+            CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_CERTIFICATE="$(echo $APPLE_CERTIFICATE | base64 --decode)" \
+            PROVISIONING_PROFILE="$APPLE_PROVISIONING_PROFILE" \
+            CODE_SIGNING_REQUIRED=YES
         env:
-          NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
         continue-on-error: true
