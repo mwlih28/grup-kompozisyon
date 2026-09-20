@@ -1,0 +1,64 @@
+name: iOS Build
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+        env:
+          NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
+
+      - name: Build iOS app
+        run: |
+          cd ios/App
+          # Build for simulator (no code signing needed)
+          xcodebuild build \
+            -project App.xcodeproj \
+            -scheme App \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=latest" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
+        env:
+          NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: ios/App/build/
+
+      - name: Archive for App Store (requires Apple Developer)
+        if: github.ref == 'refs/heads/master'
+        run: |
+          cd ios/App
+          xcodebuild archive \
+            -project App.xcodeproj \
+            -scheme App \
+            -archivePath build/App.xcarchive \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_STYLE="Automatic" \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+        env:
+          NEXT_PUBLIC_API_URL: https://grup-kompozisyon.vercel.app
+        continue-on-error: true
