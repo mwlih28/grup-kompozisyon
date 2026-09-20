@@ -15,3 +15,5 @@ ios/
 .vscode/
 .idea/
 .trae/
+
+.vercel
